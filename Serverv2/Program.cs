@@ -24,11 +24,19 @@ namespace Serverv2
 
                 // Buffer for reading data
                 byte[] msgReceivedBytes = new byte[1024];
+                //Data received through socket
                 string dataReceived;
+                //Data to send to esp 32
                 string dataToSend = "";
+                //Data parsed
                 string[] dataReceivedParsed;
-                DateTime timestamp = DateTime.Now;
-                DateTime timestampModified = timestamp.AddMinutes(1.00);
+                //Number of esp32 devices
+                int numEsp = 0;
+                int numEspTemp = 0;
+                //Timestamp necessary for sync
+                DateTime timestamp = new DateTime();
+                DateTime timestampModified = new DateTime();
+
 
                 //Enter the listening loop
                 while (true)
@@ -54,15 +62,36 @@ namespace Serverv2
                         dataReceivedParsed = dataReceived.Split(';');
 
                         Console.WriteLine(String.Format("Received: {0}", dataReceived));
+                        Console.WriteLine("Dati ricevuti: " + dataReceivedParsed[1] + " Fine dati");
 
                         //First Connection
                         if(dataReceivedParsed[1] == "R")
                         {
-                            dataToSend = timestamp.ToString() + " ;" + timestampModified.ToString();
+                            Console.WriteLine("First Connection");
+                            if(numEsp == 0)
+                            {
+                                //This is the first esp32 to connect to Server, so I calculate the timestamp
+                                timestamp = GetNetworkTime();
+                                timestampModified = timestamp.AddMinutes(1);
+                            }
+                            numEsp++;
+                            dataToSend = timestampModified.ToString();
                             
                         }
                         else
                         {
+                            Console.WriteLine("Next Connection");
+                            //First esp32 to connect after first connection
+                            if (numEspTemp == 0)
+                            {
+                                timestamp = GetNetworkTime();
+                                timestamp.AddMinutes(1);
+                            }
+                            //Last esp32
+                            if(numEspTemp == numEsp)
+                            {
+                                numEspTemp = 0;
+                            }
                             dataToSend = timestamp.ToString();
                         }
 
