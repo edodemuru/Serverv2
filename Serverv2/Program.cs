@@ -36,6 +36,8 @@ namespace Serverv2
                 //Timestamp necessary for sync
                 DateTime timestamp = new DateTime();
                 DateTime timestampModified = new DateTime();
+                //Mac of esp32 connected (max 10)
+                List<string> macEsp32 = new List<string>();
 
 
                 //Enter the listening loop
@@ -68,13 +70,25 @@ namespace Serverv2
                         if(dataReceivedParsed[1] == "R")
                         {
                             Console.WriteLine("First Connection");
-                            if(numEsp == 0)
+                            //No esp32 connected
+                            if(macEsp32.Count == 0)
                             {
                                 //This is the first esp32 to connect to Server, so I calculate the timestamp
                                 timestamp = GetNetworkTime();
                                 timestampModified = timestamp.AddMinutes(1);
+                                macEsp32.Add(dataReceivedParsed[0]);
                             }
-                            numEsp++;
+                            //List has at least one element
+                            else
+                            {
+                                //Mac is not inside list
+                                if (!macEsp32.Contains(dataReceivedParsed[0]))
+                                {
+                                    macEsp32.Add(dataReceivedParsed[0]);
+                                }
+                                timestamp = GetNetworkTime();
+                                timestampModified = timestamp.AddMinutes(1);
+                            }                          
                             dataToSend = timestampModified.ToString();
                             
                         }
@@ -88,7 +102,7 @@ namespace Serverv2
                                 timestamp.AddMinutes(1);
                             }
                             //Last esp32
-                            if(numEspTemp == numEsp)
+                            if(numEspTemp == macEsp32.Count)
                             {
                                 numEspTemp = 0;
                             }
