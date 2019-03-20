@@ -23,7 +23,7 @@ namespace Serverv2
 
 
                 // Buffer for reading data
-                byte[] msgReceivedBytes = new byte[1024];
+                byte[] msgReceivedBytes = new byte[9000];
                 //Data received through socket
                 string dataReceived;
                 //Data to send to esp 32
@@ -64,7 +64,6 @@ namespace Serverv2
                         dataReceivedParsed = dataReceived.Split(';');
 
                         Console.WriteLine(String.Format("Received: {0}", dataReceived));
-                        Console.WriteLine("Dati ricevuti: " + dataReceivedParsed[1] + " Fine dati");
 
                         //First Connection
                         if(dataReceivedParsed[1] == "R")
