@@ -68,28 +68,43 @@ namespace Serverv2
                         //First Connection
                         if(dataReceivedParsed[1] == "R")
                         {
-                            Console.WriteLine("First Connection");
                             //No esp32 connected
                             if(macEsp32.Count == 0)
                             {
                                 //This is the first esp32 to connect to Server, so I calculate the timestamp
+                                Console.WriteLine("First Connection");
                                 timestamp = GetNetworkTime();
+                                Console.WriteLine("Current time " + timestamp.ToString());
                                 timestampModified = timestamp.AddMinutes(1);
+                                Console.WriteLine("Time when esp32 will start working " + timestampModified.ToString());
                                 macEsp32.Add(dataReceivedParsed[0]);
                             }
                             //List has at least one element
                             else
                             {
+                                Console.WriteLine("Other Connection");
                                 //Mac is not inside list
                                 if (!macEsp32.Contains(dataReceivedParsed[0]))
                                 {
                                     macEsp32.Add(dataReceivedParsed[0]);
+
                                 }
-                                timestamp = GetNetworkTime();
-                                timestampModified = timestamp.AddMinutes(1);
+                                //Mac is inside list
+                                else
+                                {
+                                    Console.WriteLine("Esp32 riconnected");
+                                    timestamp = GetNetworkTime();
+                                    timestampModified = timestamp.AddMinutes(1.5);
+                                    numEspTemp = 1;
+                                }
                             }                          
                             dataToSend = timestampModified.ToString();
-                            
+                            Console.WriteLine("Esp32 Connected:");
+                            foreach (var item in macEsp32)
+                            {
+                                Console.WriteLine(item.ToString());
+                            }
+
                         }
                         else
                         {
@@ -97,15 +112,27 @@ namespace Serverv2
                             //First esp32 to connect after first connection
                             if (numEspTemp == 0)
                             {
+                                Console.WriteLine("First esp32 to connect after first connection");
                                 timestamp = GetNetworkTime();
-                                timestamp.AddMinutes(1);
+                                Console.WriteLine("Current time " + timestamp.ToString());
+                                timestampModified = timestamp.AddMinutes(1);
+                                Console.WriteLine("Time when esp32 will start working " + timestampModified.ToString());
+
                             }
+                            numEspTemp++;
                             //Last esp32
                             if(numEspTemp == macEsp32.Count)
                             {
+                                Console.WriteLine("Last esp32 to connect after first connection");
                                 numEspTemp = 0;
                             }
-                            dataToSend = timestamp.ToString();
+                            dataToSend = timestampModified.ToString();
+
+                            Console.WriteLine("Esp32 Connected:");
+                            foreach (var item in macEsp32)
+                            {
+                                Console.WriteLine(item.ToString());
+                            }
                         }
 
 
