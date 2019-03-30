@@ -12,6 +12,7 @@ namespace Serverv2
     {
         private static PacketFactory instance = null;
         private String connectionString = "Server=localhost;Database=PacketDB;Uid=root;Pwd=";
+        private int numEsp32;
 
         private PacketFactory()
         {
@@ -36,7 +37,7 @@ namespace Serverv2
             {
                 MySqlConnection databaseConnection = new MySqlConnection(connectionString);
                 databaseConnection.Open();
-                String sqlInsert = "insert into `packets`(`Id`, `ssid`, `channel`, `rssi`, `source mac`, `esp32 mac`, `timestamp`, `hash`) values (@Id,@SID,@Cha,@RS,@MACs,@MACe,@Time,@H)";
+                String sqlInsert = "insert into `packets`(`Id`, `ssid`, `channel`, `rssi`, `source_mac`, `esp32_mac`, `timestamp`, `hash`) values (@Id,@SID,@Cha,@RS,@MACs,@MACe,@Time,@H)";
                 MySqlCommand cmd = new MySqlCommand(sqlInsert, databaseConnection);
                 cmd.Parameters.Add("@Id", MySqlDbType.Int32).Value = packet.Id;
                 cmd.Parameters.Add("@Time", MySqlDbType.VarChar).Value = packet.Timestamp;
@@ -56,19 +57,20 @@ namespace Serverv2
             }
         }
 
-        public int getPacketMaxId()
+        public int GetPacketMaxId()
         {
             int result = -1;
             try
             {
                 MySqlConnection databaseConnection = new MySqlConnection(connectionString);
                 databaseConnection.Open();
-                String sqlInsert = "select * from packets where id=( select max(id) from packets)";
+                String sqlInsert = "select max(id) from packets";
                 MySqlCommand cmd = new MySqlCommand(sqlInsert, databaseConnection);
                 MySqlDataReader reader = cmd.ExecuteReader();
-                if (reader.Read())
+                if (reader != null && reader.HasRows && reader.Read())
                 {
-                    result = reader.GetInt32(0);
+                    if (!reader.IsDBNull(0))
+                        result = reader.GetInt32(0);
 
                 }
                 reader.Close();
@@ -83,6 +85,144 @@ namespace Serverv2
             }
         }
 
+        //Get list of hash of packets received from both esp32
+        public List<String> GetListHashFiltered() {
+            List<String> listHash = new List<String>();
+
+            try
+            {
+                MySqlConnection databaseConnection = new MySqlConnection(connectionString);
+                databaseConnection.Open();
+
+                String sqlQuery = "select hash from (select* from packets group by hash,esp32_mac) as filteredPackets group by hash having count(*) = " + NumEsp32;
+
+                MySqlCommand cmd = new MySqlCommand(sqlQuery, databaseConnection);
+                MySqlDataReader reader = cmd.ExecuteReader();
+
+                if (reader.HasRows)
+                {
+                    //while cicle to read the data
+                    while (reader.Read())
+                    {
+                        //each row from the data matched by the query
+                        listHash.Add(reader.GetString(0));
+
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("No rows found.");
+                }
+
+                //int i = cmd.ExecuteNonQuery();
+                databaseConnection.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("error " + ex.Message);
+                return null;
+            }
+
+            return listHash;
+        }
+
+        public int GetCountFromPacket(Packet p)
+        {
+            int numb = 0;
+            //To convert SQLdataReader into String 
+            try
+            {
+                MySqlConnection databaseConnection = new MySqlConnection(connectionString);
+                databaseConnection.Open();
+
+                String sqlQuery = "SELECT COUNT(*) from packets WHERE hash ='" + p.Hash + "' GROUP by esp32_mac";
+
+
+                MySqlCommand cmd = new MySqlCommand(sqlQuery, databaseConnection);
+                MySqlDataReader reader = cmd.ExecuteReader();
+
+                if (reader.HasRows)
+                {
+                    //while cicle to read the data
+                    while (reader.Read())
+                    {
+                        //each row from the data matched by the query
+                        //string []  row ={ reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3) }; //depends by the number of the coloumn
+                        numb = reader.GetInt32(0);
+
+                    }
+
+                }
+                else
+                {
+                    Console.WriteLine("No rows found.");
+                }
+
+                //int i = cmd.ExecuteNonQuery();
+                databaseConnection.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("error " + ex.Message);
+                return -1;
+            }
+
+            return numb;
+        }
+
+        public List<Packet> GetListPkFromPacket(Packet p)
+        {
+            List<Packet> listPackets = new List<Packet>();
+
+            try
+            {
+                MySqlConnection databaseConnection = new MySqlConnection(connectionString);
+                databaseConnection.Open();
+
+                String sqlQuery = "select*  from 'packets' where hash=" + p.Hash + " group by esp32_mac";
+
+                MySqlCommand cmd = new MySqlCommand(sqlQuery, databaseConnection);
+                MySqlDataReader reader = cmd.ExecuteReader();
+
+                if (reader.HasRows)
+                {
+                    //while cicle to read the data
+                    while (reader.Read())
+                    {
+                        //each row from the data matched by the query
+                        Packet tmp = new Packet();
+
+                        tmp.Id = reader.GetInt32(0);
+                        tmp.Ssid = reader.GetString(1);
+                        tmp.Channel = reader.GetInt32(2);
+                        tmp.Rssi = reader.GetInt32(3);
+                        tmp.MacSource = reader.GetString(4);
+                        tmp.MacEsp32 = reader.GetString(5);
+                        tmp.Timestamp = reader.GetString(6);
+                        tmp.Hash = reader.GetString(7);
+
+                        listPackets.Add(tmp);
+
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("No rows found.");
+                }
+
+                //int i = cmd.ExecuteNonQuery();
+                databaseConnection.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("error " + ex.Message);
+                return null;
+            }
+
+            return listPackets;
+        }
+
         public string ConnectionString { get => connectionString; set => connectionString = value; }
+        public int NumEsp32 { get => numEsp32; set => numEsp32 = value; }
     }
 }
