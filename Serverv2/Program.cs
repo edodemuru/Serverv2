@@ -49,6 +49,7 @@ namespace Serverv2
 
                 //Get last id from db
                 int lastIdDatabase = PacketFactory.Instance.GetPacketMaxId() + 1;
+                PacketFactory.Instance.NumEsp32 = numEsp32;
 
               
 
@@ -145,12 +146,7 @@ namespace Serverv2
 
                             }
                             numEspTemp++;
-                            //Last esp32
-                            if(numEspTemp == macEsp32.Count)
-                            {
-                                Console.WriteLine("Last esp32 to connect after first connection");
-                                numEspTemp = 0;
-                            }
+                            
                             dataToSend = timestampModified.ToString();
 
                             Console.WriteLine("Esp32 Connected:");
@@ -191,6 +187,36 @@ namespace Serverv2
 
                             }
                             Console.WriteLine("Insert into DB completed");
+
+                            //Last esp32
+                            if (numEspTemp == macEsp32.Count)
+                            {
+                                Console.WriteLine("Last esp32 to connect after first connection");
+                                numEspTemp = 0;
+
+
+                                //DATA ANALYSIS
+                                //Obtain packets received from all esp32
+                                List<String> hashPkFiltered = PacketFactory.Instance.GetListHashFiltered();
+                                //For each hash, obtain the most recent packets received from all esp3
+                                foreach(String hash in hashPkFiltered)
+                                {
+
+                                    List<Packet> pkFiltered = PacketFactory.Instance.GetListPkFilteredFromHash(hash);
+                                    //Console.WriteLine("Id packets filtered:");
+                                    if (pkFiltered[0].MacSource == "24:18:1d:e3:6d:c3" || pkFiltered[0].MacSource == "d0:57:7b:f0:d2:0a")
+                                    {
+                                        Console.WriteLine("Id: " + pkFiltered[0].Id +   " Distanza da scheda 1 " + GetDistanceFromRssi(pkFiltered[0].Rssi) + " Metri");
+                                        Console.WriteLine("Id: " + pkFiltered[1].Id + " Distanza da scheda 2 " + GetDistanceFromRssi(pkFiltered[1].Rssi) + " Metri");
+                                    }
+                                    /*foreach (Packet pk in pkFiltered)
+                                    {
+                                        Console.WriteLine(pk.Id);
+                                    }*/
+
+                                    
+                                }
+                            }
                         }
 
 
@@ -247,14 +273,48 @@ namespace Serverv2
 
             using (var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
             {
-                socket.Connect(ipEndPoint);
+                var attempts = 0;
+                var times = 4;
+                var delay = 1000;
+                do
+                {
+                    try
+                    {
+                        attempts++;
+                        socket.Connect(ipEndPoint);
 
-                //Stops code hang if NTP is blocked
-                socket.ReceiveTimeout = 3000;
+                        //Stops code hang if NTP is blocked
+                        socket.ReceiveTimeout = 3000;
 
-                socket.Send(ntpData);
-                socket.Receive(ntpData);
-                socket.Close();
+                        socket.Send(ntpData);
+                        socket.Receive(ntpData);
+                        socket.Close();
+                        break;
+                    }
+                    catch (SocketException ex)
+                    {
+                        if (attempts == times)
+                            throw;
+                        Console.WriteLine("Exception" + ex.Message +  " caught on attempt " + attempts + " will retry after delay");
+
+                        Task.Delay(delay).Wait();
+                    }
+                } while (true);
+               /* try
+                {
+                    socket.Connect(ipEndPoint);
+
+                    //Stops code hang if NTP is blocked
+                    socket.ReceiveTimeout = 3000;
+
+                    socket.Send(ntpData);
+                    socket.Receive(ntpData);
+                    socket.Close();
+                }
+                catch
+                {
+
+                }*/
             }
 
             //Offset to get to the "Transmit Timestamp" field (time at which the reply 
@@ -304,6 +364,13 @@ namespace Serverv2
             
             Console.WriteLine("Lunghezza dati: " + data.Length);
             return data;
+        }
+
+        static double GetDistanceFromRssi(double rssi)
+        {
+            double measuredPower = -69;
+            double n = 2;
+            return Math.Pow(10, (measuredPower - rssi) / (10 * n));
         }
 
     }

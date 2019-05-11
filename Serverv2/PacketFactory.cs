@@ -94,6 +94,7 @@ namespace Serverv2
                 MySqlConnection databaseConnection = new MySqlConnection(connectionString);
                 databaseConnection.Open();
 
+                //Raggruppo inizialmente per hash e per esp32, così elimino i doppioni, poi faccio un ulteriore raggruppamento per hash, così da individuare i pacchetti ricevuti da entrambe le schede
                 String sqlQuery = "select hash from (select* from packets group by hash,esp32_mac) as filteredPackets group by hash having count(*) = " + NumEsp32;
 
                 MySqlCommand cmd = new MySqlCommand(sqlQuery, databaseConnection);
@@ -125,6 +126,8 @@ namespace Serverv2
 
             return listHash;
         }
+
+        
 
         public int GetCountFromPacket(Packet p)
         {
@@ -170,7 +173,8 @@ namespace Serverv2
             return numb;
         }
 
-        public List<Packet> GetListPkFromPacket(Packet p)
+        //Obtain list of packets from hash, selecting the most recent
+        public List<Packet> GetListPkFilteredFromHash(String hash)
         {
             List<Packet> listPackets = new List<Packet>();
 
@@ -179,7 +183,7 @@ namespace Serverv2
                 MySqlConnection databaseConnection = new MySqlConnection(connectionString);
                 databaseConnection.Open();
 
-                String sqlQuery = "select*  from 'packets' where hash=" + p.Hash + " group by esp32_mac";
+                String sqlQuery = "select * from packets where id IN(select MAX(id) from packets where hash ='" + hash + "' GROUP by esp32_mac)";
 
                 MySqlCommand cmd = new MySqlCommand(sqlQuery, databaseConnection);
                 MySqlDataReader reader = cmd.ExecuteReader();
