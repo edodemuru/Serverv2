@@ -85,7 +85,7 @@ namespace Serverv2
             }
         }
 
-        //Get list of hash of packets received from both esp32
+        //Get list of hash of packets received from all esp32
         public List<String> GetListHashFiltered() {
             List<String> listHash = new List<String>();
 
@@ -127,7 +127,50 @@ namespace Serverv2
             return listHash;
         }
 
-        
+        //Get list of hash of packets received from all esp32
+        public List<String> GetListHashFiltered(int lastId)
+        {
+            List<String> listHash = new List<String>();
+
+            try
+            {
+                MySqlConnection databaseConnection = new MySqlConnection(connectionString);
+                databaseConnection.Open();
+
+                //Raggruppo inizialmente per hash e per esp32, così elimino i doppioni, poi faccio un ulteriore raggruppamento per hash, così da individuare i pacchetti ricevuti da entrambe le schede
+                String sqlQuery = "select hash from (select* from packets group by hash,esp32_mac) as filteredPackets where id>= " + lastId + " group by hash having count(*) = " + NumEsp32;
+
+                MySqlCommand cmd = new MySqlCommand(sqlQuery, databaseConnection);
+                MySqlDataReader reader = cmd.ExecuteReader();
+
+                if (reader.HasRows)
+                {
+                    //while cicle to read the data
+                    while (reader.Read())
+                    {
+                        //each row from the data matched by the query
+                        listHash.Add(reader.GetString(0));
+
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("No rows found.");
+                }
+
+                //int i = cmd.ExecuteNonQuery();
+                databaseConnection.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("error " + ex.Message);
+                return null;
+            }
+
+            return listHash;
+        }
+
+
 
         public int GetCountFromPacket(Packet p)
         {
@@ -183,7 +226,60 @@ namespace Serverv2
                 MySqlConnection databaseConnection = new MySqlConnection(connectionString);
                 databaseConnection.Open();
 
-                String sqlQuery = "select * from packets where id IN(select MAX(id) from packets where hash ='" + hash + "' GROUP by esp32_mac)";
+                String sqlQuery = "select * from packets where id IN(select MAX(id) from packets where hash ='" + hash + "' GROUP by esp32_mac) order by `packets`.`esp32_mac` asc";
+
+                MySqlCommand cmd = new MySqlCommand(sqlQuery, databaseConnection);
+                MySqlDataReader reader = cmd.ExecuteReader();
+
+                if (reader.HasRows)
+                {
+                    //while cicle to read the data
+                    while (reader.Read())
+                    {
+                        //each row from the data matched by the query
+                        Packet tmp = new Packet();
+
+                        tmp.Id = reader.GetInt32(0);
+                        tmp.Ssid = reader.GetString(1);
+                        tmp.Channel = reader.GetInt32(2);
+                        tmp.Rssi = reader.GetInt32(3);
+                        tmp.MacSource = reader.GetString(4);
+                        tmp.MacEsp32 = reader.GetString(5);
+                        tmp.Timestamp = reader.GetString(6);
+                        tmp.Hash = reader.GetString(7);
+
+                        listPackets.Add(tmp);
+
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("No rows found.");
+                }
+
+                //int i = cmd.ExecuteNonQuery();
+                databaseConnection.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("error " + ex.Message);
+                return null;
+            }
+
+            return listPackets;
+        }
+
+        //Obtain list of packets from hash, selecting the most recent
+        public List<Packet> GetListPkFilteredFromHash(String hash, int lastId)
+        {
+            List<Packet> listPackets = new List<Packet>();
+
+            try
+            {
+                MySqlConnection databaseConnection = new MySqlConnection(connectionString);
+                databaseConnection.Open();
+
+                String sqlQuery = "select * from packets where id IN(select MAX(id) from packets where hash ='" + hash + "' GROUP by esp32_mac) and id >= " + lastId + " order by `packets`.`esp32_mac` asc";
 
                 MySqlCommand cmd = new MySqlCommand(sqlQuery, databaseConnection);
                 MySqlDataReader reader = cmd.ExecuteReader();
